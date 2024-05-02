@@ -16,17 +16,25 @@ parent_dir = current_dir.parent
 files = [parent_dir / "text1.txt", parent_dir / "text2.txt", parent_dir / "text3.txt"]
 
 def search_keywords(filename, keywords, results, lock):
-    matches = []
+    matches = {}
     with open(filename, "r", encoding="utf-8") as file:
         content = file.read()
         for keyword in keywords:
-            matches.extend(re.findall(keyword, content, re.IGNORECASE))
+            match = re.findall(keyword, content, re.IGNORECASE)
+            for word in match:
+                if word not in matches:
+                    matches[word] = [filename]
     with lock:
-        results.append(matches)
+        for key in matches:
+            if key in results:
+                results[key].append(*matches[key])
+            else:
+                results[key] = matches[key]
+        
 
 
 def process_files_with_threads(files, keywords):
-    results = []
+    results = {}
     lock = RLock()
     threads = []
     for file in files:
@@ -36,28 +44,15 @@ def process_files_with_threads(files, keywords):
 
     for thread in threads:
         thread.join()
-
     return results
 
-
-def count_matches(results):
-    element_counts = {}
-    count = 0
-    for matches in results:
-        if matches in element_counts:
-            element_counts[matches] += 1
-        else:
-            element_counts[matches] = 1
-        count += 1
-    return element_counts
-
-
-if __name__ == "__main__":
+def thread_func():
     keywords = ["Python", "програмування", "всі"]
 
     results = process_files_with_threads(files, keywords)
 
-    for file, matches in zip(files, results):
-        logging.info(f"File: {file}")
-        match = count_matches(matches)
-        [logging.info(f"{key} : {value}") for key, value in match.items()]
+    [logging.info(f"{key} : {values}") for key, values in results.items()]
+
+
+if __name__ == "__main__":
+    thread_func()

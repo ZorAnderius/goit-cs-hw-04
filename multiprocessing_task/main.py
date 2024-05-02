@@ -15,17 +15,20 @@ parent_dir = current_dir.parent
 files = [parent_dir / "text1.txt", parent_dir / "text2.txt", parent_dir / "text3.txt"]
 
 def search_keywords(filename, keywords, queue, lock):
-    matches = []
+    matches = {}
     with open(filename, "r", encoding="utf-8") as file:
         content = file.read()
         for keyword in keywords:
-            matches.extend(re.findall(keyword, content, re.IGNORECASE))
+            match = re.findall(keyword, content, re.IGNORECASE)
+            for word in match:
+                if word not in matches:
+                    matches[word] = [filename]
     with lock:
         queue.put(matches)
 
 
 def process_files_with_processes(files, keywords):
-    results = []
+    results = {}
     queue = Queue()
     lock = RLock()
     processes = []
@@ -38,29 +41,22 @@ def process_files_with_processes(files, keywords):
         process.join()
 
     while not queue.empty():
-        results.append(queue.get())
+        matches = queue.get()
+        for key, value in  matches.items():
+            if key in results:
+                results[key].append(*value)
+            else:
+                results[key] = value
 
     return results
 
-
-def count_matches(results):
-    element_counts = {}
-    count = 0
-    for match in results:
-        if match in element_counts:
-            element_counts[match] += 1
-        else:
-            element_counts[match] = 1
-        count += 1
-    return element_counts
-
-
-if __name__ == "__main__":
+def multiprocessing_func():
     keywords = ["Python", "програмування", "всі"]
 
     results = process_files_with_processes(files, keywords)
 
-    for file, matches in zip(files, results):
-        logging.info(f"File: {file}")
-        match = count_matches(matches)
-        [logging.info(f"{key} : {value}") for key, value in match.items()]
+    [logging.info(f"{key} : {values}") for key, values in results.items()]
+
+
+if __name__ == "__main__":
+    multiprocessing_func()
